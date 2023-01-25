@@ -17,7 +17,7 @@ object IO:
   def getLine: IO[String] = IO(() => scala.io.StdIn.readLine())
 
   object Examples:
-    def urlProgram: IO[Unit] =
+    def program: IO[Unit] =
       def urlToResource(url: String): IO[Try[Response]] =
         IO(() => Try(requests.get(url)))
 

@@ -10,6 +10,28 @@ trait Monad[M[_]]:
 object Monad:
   def pure[M[_]: Monad, A](a: A) = summon[Monad[M]].pure(a)
 
+  given Monad[Option] with
+    def pure[A](a: A): Option[A] = Some(a)
+    extension [A](m: Option[A])
+      def flatMap[B](f: A => Option[B]): Option[B] =
+        m match
+          case None    => None
+          case Some(a) => f(a)
+
+  given functorFromMonad[M[_]: Monad]: Functor[M] with
+    extension [A](m: M[A])
+      def map[B](g: A => B): M[B] =
+        m.flatMap(a => Monad.pure(g(a)))
+
+  extension [A, M[_]: Monad](xs: List[M[A]])
+    def sequence: M[List[A]] = xs match
+      case Nil => Monad.pure(Nil)
+      case head :: tail =>
+        for
+          x  <- head
+          xs <- tail.sequence
+        yield x :: xs
+
   extension [A, M[_]: Monad](m: M[A])
     def >>[B](other: M[B]) = m.flatMap(_ => other)
 
@@ -27,25 +49,3 @@ object Monad:
             then m.retry(n - 1, shouldRetry)
             else Monad.pure(Some(result))
           }
-
-  extension [A, M[_]: Monad](xs: List[M[A]])
-    def sequence: M[List[A]] = xs match
-      case Nil => Monad.pure(Nil)
-      case head :: tail =>
-        for
-          x  <- head
-          xs <- tail.sequence
-        yield x :: xs
-
-  given Monad[Option] with
-    def pure[A](a: A): Option[A] = Some(a)
-    extension [A](m: Option[A])
-      def flatMap[B](f: A => Option[B]): Option[B] =
-        m match
-          case None    => None
-          case Some(a) => f(a)
-
-  given functorFromMonad[M[_]: Monad]: Functor[M] with
-    extension [A](m: M[A])
-      def map[B](g: A => B): M[B] =
-        m.flatMap(a => Monad.pure(g(a)))
