@@ -19,6 +19,15 @@ object State:
 
   object Examples:
     def incrementCounter: State[Int, String] =
+      get.flatMap(counter =>
+        set(counter + 1).flatMap(_ =>
+          get.flatMap(newCounter =>
+            Monad.pure(f"counter is: $newCounter")
+          )
+        )
+      )
+
+    def incrementCounterForComprehension: State[Int, String] =
       for
         counter    <- State.get
         _          <- State.set(counter + 1)
