@@ -25,6 +25,8 @@ object Examples:
     def program: Program[Int] =
       for
         s <- IO.getLine.lift[StateTFixS[String]].lift[OptionT]
-        _ <- StateT.set[String, IO](s).lift[OptionT]
-        _ <- OptionT.fail: Program[Unit]
+        _ <-
+          if s == "fail"
+          then OptionT.fail: Program[Unit]
+          else StateT.set[String, IO](s).lift[OptionT]
       yield s.length
