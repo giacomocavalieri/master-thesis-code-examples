@@ -1,4 +1,4 @@
-package monads.transfromers
+package monads.transformers
 
 import monads.Monad
 import monads.Monad.{*, given}
@@ -22,8 +22,8 @@ object OptionT:
         )
 
   given MonadTransformer[OptionT] with
-    extension [M[_]: Monad, A](m: M[A])
-      def lift: OptionT[M, A] = OptionT(m.map(Some(_)))
+    def lift[M[_]: Monad, A](m: M[A]): OptionT[M, A] =
+      OptionT(m.map(Some(_)))
 
   def fail[M[_]: Monad, A]: OptionT[M, A] =
     OptionT(Monad.pure(None))

@@ -1,5 +1,7 @@
 package monads
 
+import monads.transformers.MonadTransformer
+
 trait Functor[F[_]]:
   extension [A](f: F[A]) def map[B](g: A => B): F[B]
 
@@ -49,3 +51,6 @@ object Monad:
             then m.retry(n - 1, shouldRetry)
             else Monad.pure(Some(result))
           }
+
+    def lift[T[_[_], _]: MonadTransformer]: T[M, A] =
+      summon[MonadTransformer[T]].lift(m)

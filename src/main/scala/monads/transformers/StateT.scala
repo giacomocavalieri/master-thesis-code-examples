@@ -23,9 +23,8 @@ object StateT:
 
   type StateTFixS[S] = [M[_], A] =>> StateT[S, M, A]
   given [S]: MonadTransformer[StateTFixS[S]] with
-    extension [M[_]: Monad, A](m: M[A])
-      def lift: StateT[S, M, A] =
-        StateT(s => m.map((_, s)))
+    def lift[M[_]: Monad, A](m: M[A]): StateT[S, M, A] =
+      StateT(s => m.map((_, s)))
 
   def get[S, M[_]: Monad]: StateT[S, M[_], S] =
     StateT(s => Monad.pure((s, s)))

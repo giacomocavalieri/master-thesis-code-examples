@@ -1,5 +1,5 @@
 import monads.*
-import monads.transfromers.OptionT
+import monads.transformers.OptionT
 
 @main def main =
   OptionT.Examples.failAndIO.runOptionT.unsafeRun()
