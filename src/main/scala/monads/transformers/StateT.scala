@@ -48,9 +48,13 @@ object StateT:
       import monads.Identity
 
       type State[S, A] = StateT[S, Identity, A]
+
+      def get[S]: State[S, S] = StateT.get
+      def set[S](state: S): State[S, Unit] = StateT.set(state)
+
       def incrementCounter: State[Int, String] =
         for
-          counter    <- StateT.get[Int, Identity]
-          _          <- StateT.set[Int, Identity](counter + 1)
-          newCounter <- StateT.get[Int, Identity]
+          counter    <- State.get
+          _          <- State.set(counter + 1)
+          newCounter <- State.get
         yield f"counter is: $newCounter"
