@@ -30,3 +30,8 @@ object Examples:
           then OptionT.fail: Program[Unit]
           else StateT.set[String, IO](s).lift[OptionT]
       yield s.length
+
+    @main def runProgram: (Option[Int], String) =
+      program.runOptionT
+        .runStateT("initial state")
+        .unsafeRun()
