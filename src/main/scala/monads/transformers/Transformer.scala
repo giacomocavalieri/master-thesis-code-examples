@@ -49,3 +49,26 @@ object Examples:
     val program2: Program2[Int] = ???
     val result2: (Option[Int], String) =
       program2.runOptionT.runStateT("initial state").unsafeRun()
+
+  object Parser:
+    import monads.State
+
+    opaque type Parser[A] = OptionT[State[String, _], A]
+    extension [A](parser: Parser[A])
+      def parse(string: String): (Option[A], String) =
+        parser.runOptionT.runState(string)
+
+    def fail[A]: Parser[A] = OptionT.fail
+    def get: Parser[String] = State.get.lift[OptionT]
+    def set(string: String): Parser[Unit] =
+      State.set(string).lift[OptionT]
+
+    def char: Parser[Char] =
+      for
+        string <- get
+        result <- string.headOption match
+          case Some(char) =>
+            for _ <- set(string.tail)
+            yield char
+          case None => fail
+      yield result
