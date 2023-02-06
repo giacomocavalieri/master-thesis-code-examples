@@ -35,3 +35,17 @@ object Examples:
       program.runOptionT
         .runStateT("initial state")
         .unsafeRun()
+
+  object Associativity:
+    import monads.IO
+
+    type Program1[A] = StateT[String, OptionT[IO, _], A]
+    type Program2[A] = OptionT[StateT[String, IO, _], A]
+
+    val program1: Program1[Int] = ???
+    val result1: Option[(Int, String)] =
+      program1.runStateT("initial state").runOptionT.unsafeRun()
+
+    val program2: Program2[Int] = ???
+    val result2: (Option[Int], String) =
+      program2.runOptionT.runStateT("initial state").unsafeRun()
