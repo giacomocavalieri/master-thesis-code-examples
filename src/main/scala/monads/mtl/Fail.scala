@@ -22,3 +22,18 @@ object Fail:
     M[_]: Monad: Fail]: Fail[T[M, _]] with
     def fail[A] = Fail[M].fail.lift[T]
   // format: on
+
+  object Examples:
+    object WithExplicitUsing:
+      def divide[M[_]: Monad](dividend: Int, divisor: Int)(using
+        F: Fail[M]
+      ): M[Int] =
+        if divisor == 0 then F.fail
+        else Monad.pure(dividend / divisor)
+
+    def divide[M[_]: Monad: Fail](
+      dividend: Int,
+      divisor: Int
+    ): M[Int] =
+      if divisor == 0 then Fail[M].fail
+      else Monad.pure(dividend / divisor)
