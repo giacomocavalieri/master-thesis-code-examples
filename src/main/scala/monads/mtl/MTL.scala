@@ -71,3 +71,18 @@ object MTL:
         newState <- divide(10, state)
         _        <- State[M, Int].set(newState)
       yield f"The result is $newState"
+
+    import monads.Identity
+
+    def interpretEffects: Unit =
+      type Stack1 = OptionT[StateT[Int, Identity, _], _]
+      val res1: (Option[String], Int) =
+        effects[Stack1].runOptionT.runStateT(1)
+
+      type Stack2 = StateT[Int, OptionT[Identity, _], _]
+      val res2: Option[(String, Int)] =
+        effects[Stack2].runStateT(1).runOptionT
+
+      type Stack3 = StateT[Int, IO, _]
+      val res3: (String, Int) =
+        effects[Stack3].runStateT(1).unsafeRun()
