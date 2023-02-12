@@ -3,6 +3,7 @@ package monads.mtl
 import monads.{IO, Monad}
 import monads.Monad.lift
 import monads.transformers.{OptionT, MonadTransformer}
+import monads.Identity
 
 trait Fail[M[_]]:
   def fail[A]: M[A]
@@ -37,3 +38,8 @@ object Fail:
     ): M[Int] =
       if divisor == 0 then Fail[M].fail
       else Monad.pure(dividend / divisor)
+
+    def interpretDivide: Unit =
+      val res1: Int = divide[IO](10, 20).unsafeRun()
+      val res2: Option[Int] =
+        divide[OptionT[Identity, _]](10, 20).runOptionT
