@@ -8,7 +8,7 @@ import monads.transformers.StateT.StateTFixS
 import monads.transformers.MonadTransformer
 import scala.util.Random
 
-object Examples:
+object TransformersProblemsExamples:
   def manualLifting: StateT[Int, OptionT[IO, _], String] =
     for
       _ <- IO.putStrLn("asd").lift[OptionT].lift[StateTFixS[Int]]
@@ -60,3 +60,14 @@ object Examples:
 
     println(example[Stack].runOptionT.runStateT(0))
     println(example[IOBasedStack].runStateT(0).unsafeRun())
+
+object MTL:
+  object Examples:
+    import Fail.Examples.divide
+
+    def effects[M[_]: HasState[Int]: Fail: Monad]: M[String] =
+      for
+        state    <- State[M, Int].get
+        newState <- divide(10, state)
+        _        <- State[M, Int].set(newState)
+      yield f"The result is $newState"

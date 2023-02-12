@@ -11,10 +11,10 @@ object Fail:
   def apply[M[_]: Monad: Fail]: Fail[M] = summon[Fail[M]]
 
   given optionCanFail[M[_]: Monad]: Fail[OptionT[M, _]] with
-    def fail[A] = OptionT.fail
+    def fail[A]: OptionT[M, A] = OptionT.fail
 
   given ioCanFail: Fail[IO] with
-    def fail[A] = IO(() => throw Exception())
+    def fail[A]: IO[A] = IO(() => throw Exception())
 
   // format: off
   given transformerCanFail[

@@ -54,3 +54,10 @@ object Monad:
 
     def lift[T[_[_], _]: MonadTransformer]: T[M, A] =
       summon[MonadTransformer[T]].lift(m)
+
+    def void: M[Unit] = m.map(_ => ())
+
+  def when[A, M[_]: Monad](condition: Boolean)(
+    action: M[A]
+  ): M[Unit] =
+    if condition then action.void else Monad.pure(())
