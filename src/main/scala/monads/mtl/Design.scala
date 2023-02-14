@@ -105,6 +105,6 @@ object Design:
         def testUpdateAgeDeletesUnderageUsers: Unit =
           val user = User(UserId(1), "Giacomo", 12)
           val runtime = Runtime(Map(user.id -> user))
-          val finalRuntime = updateAge[TestRunner](user.id).runStateT(runtime)._2
-
+          val finalRuntime =
+            updateAge[TestRunner](user.id).runStateT(runtime)._2
           assert(finalRuntime.users.isEmpty)   
