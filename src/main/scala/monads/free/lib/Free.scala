@@ -4,6 +4,7 @@ import monads.Functor
 import monads.Monad
 import monads.Monad.{*, given}
 import monads.free.lib.Inject.inject
+import scala.annotation.tailrec
 
 type ~>[F[_], G[_]] = Interpreter[F, G]
 trait Interpreter[F[_], G[_]]:
@@ -27,8 +28,16 @@ enum Program[I[_], A]:
   case Return[I[_], A](value: A) extends Program[I, A]
   case Then[I[_], A, B](
     program: Program[I, A],
-    f: A => Program[I, B]
+    continuation: A => Program[I, B]
   ) extends Program[I, B]
+
+// A way to inspect the next instruction of a program
+enum ProgramView[I[_], A]:
+  case Return[I[_], A](value: A) extends ProgramView[I, A]
+  case Then[I[_], A, B](
+    instruction: I[A],
+    continuation: A => Program[I, B]
+  ) extends ProgramView[I, B]
 
 object Program:
   def fromValue[I[_], A](value: A): Program[I, A] = Return(value)
@@ -39,7 +48,7 @@ object Program:
     instruction: I[A]
   ) = Program.fromInstruction(instruction).injectProgram
 
-  given termIsMonad[I[_]]: Monad[Program[I, _]] with
+  given programIsMonad[I[_]]: Monad[Program[I, _]] with
     def pure[A](a: A): Program[I, A] = Return(a)
     extension [A](program: Program[I, A])
       override def flatMap[B](
@@ -66,3 +75,14 @@ object Program:
         def apply[A](instruction: I[A]): Program[I2, A] =
           Program.fromInstruction(instruction.inject)
       program.interpret(interpreter)
+
+    @tailrec
+    def next: ProgramView[I, A] = program match
+      case Return(value) => ProgramView.Return(value)
+      case Instruction(instruction) =>
+        ProgramView.Then(instruction, Return(_))
+      case Then(Then(program, f), g) =>
+        program.andThen(x => f(x).andThen(g)).next
+      case Then(Return(value), f) => f(value).next
+      case Then(Instruction(instruction), f) =>
+        ProgramView.Then(instruction, f)
