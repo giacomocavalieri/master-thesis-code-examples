@@ -76,13 +76,14 @@ object Program:
           Program.fromInstruction(instruction.inject)
       program.interpret(interpreter)
 
-    @tailrec
-    def next: ProgramView[I, A] = program match
+    @tailrec def next: ProgramView[I, A] = program match
       case Return(value) => ProgramView.Return(value)
       case Instruction(instruction) =>
         ProgramView.Then(instruction, Return(_))
-      case Then(Then(program, f), g) =>
-        program.andThen(x => f(x).andThen(g)).next
-      case Then(Return(value), f) => f(value).next
-      case Then(Instruction(instruction), f) =>
-        ProgramView.Then(instruction, f)
+      case Then(program, f) =>
+        program match
+          case Instruction(instruction) =>
+            ProgramView.Then(instruction, f)
+          case Return(value) => f(value).next
+          case Then(program, g) =>
+            program.andThen(x => g(x).andThen(f)).next

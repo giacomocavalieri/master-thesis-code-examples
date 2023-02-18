@@ -2,6 +2,7 @@ package monads.free
 
 import monads.Monad.{given, *}
 import monads.free.lib.*
+import scala.annotation.tailrec
 
 enum StateDSL[S, A]:
   case Get[S]() extends StateDSL[S, S]
@@ -36,15 +37,20 @@ object Examples:
           case Get()  => Identity(currentState)
           case Set(s) => currentState = s; Identity(())
 
-  def incrementCounter: State[Int, Int] = for
-    n <- get
-    _ <- set(n + 1)
-    m <- get
-  yield m
+  extension [S, A](program: Program[StateDSL[S, _], A])
+    @tailrec def runWithState(state: S): (S, A) =
+      program.next match
+        case ProgramView.Return(value) => (state, value)
+        case ProgramView.Then(instruction, continuation) =>
+          instruction match
+            case Get() => continuation(state).runWithState(state)
+            case Set(s) => continuation(()).runWithState(s)
 
-  @main def prova =
-    println(
-      incrementCounter.interpret(pureInterpreter).runStateT(10)
-    )
-
-    println(incrementCounter.interpret(impureInterpreter(10)))
+  @main
+  def runProgram =
+    val program = for
+      n <- get[Int]
+      _ <- set(n + 1)
+    yield f"State was $n"
+    println(program.runWithState(0))
+    // -> (1, "State was 0")
