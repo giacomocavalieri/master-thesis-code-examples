@@ -21,47 +21,51 @@ object Concurrency:
   def fork(program: Concurrent[Unit]) =
     Program.fromInstruction(Fork(program))
 
-  def singleThreaded[A](thread: Concurrent[Unit]): Unit =
-    runThreads(List(thread))
+  // format: off
+  extension (thread: Concurrent[Unit])
+    def runSingleThreadedCooperative: Unit =
+      runThreads(List(thread))
 
-  def runThreads(threads: List[Concurrent[Unit]]): Unit =
-    threads match
-      case thread :: threads => runSingle(thread.next, threads)
-      case Nil               => ()
+    private def runThreads(threads: List[Concurrent[Unit]]): Unit =
+      threads match
+        case Nil => ()
+        case thread :: threads => 
+          runInstruction(thread.next, threads)
+  // format: on
 
-  def runSingle(
-    thread: ProgramView[ConcurrentDSL, Unit],
-    threads: List[Concurrent[Unit]]
-  ): Unit =
-    thread match
-      case ProgramView.Return(_) => runThreads(threads)
-      case ProgramView.Then(instruction, continuation) =>
-        instruction match
-          case Perform(action) =>
-            val result = action()
-            val newThreads = continuation(result) +: threads
-            runThreads(newThreads)
-          case Stop =>
-            runThreads(threads)
-          case YieldControl =>
-            val newThreads = threads :+ continuation(())
-            runThreads(newThreads)
-          case Fork(process) =>
-            val newThreads =
-              threads :+ continuation(()) :+ process
-            runThreads(newThreads)
+    private def runInstruction(
+      instruction: ProgramView[ConcurrentDSL, Unit],
+      threads: List[Concurrent[Unit]]
+    ): Unit =
+      instruction match
+        case ProgramView.Return(_) => runThreads(threads)
+        case ProgramView.Then(instruction, continuation) =>
+          instruction match
+            case Perform(action) =>
+              val result = action()
+              val newThreads = continuation(result) +: threads
+              runThreads(newThreads)
+            case Stop =>
+              runThreads(threads)
+            case YieldControl =>
+              val newThreads = threads :+ continuation(())
+              runThreads(newThreads)
+            case Fork(process) =>
+              val newThreads =
+                continuation(()) +: threads :+ process
+              runThreads(newThreads)
 
-  @main def concurrent =
-    val concurrentProgram =
-      for
-        _ <- perform(println("1"))
-        _ <- fork {
-          for {
-            _ <- perform(println("3"))
-          } yield ()
-        }
-        _ <- yieldControl
-        _ <- perform(println("2"))
-      yield ()
+  object Examples:
+    val program =
+      perform(println("forking"))
+        >> fork(thread("1", "hello world"))
+        >> yieldControl
+        >> perform(println("thread1 - ending"))
 
-    singleThreaded(concurrentProgram)
+    def thread(name: String, message: String) =
+      perform(println(f"thread $name - $message"))
+        >> yieldControl
+        >> perform(println(f"thread $name - ending"))
+
+    @main def concurrent =
+      program.runSingleThreadedCooperative
