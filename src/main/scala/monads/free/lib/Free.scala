@@ -3,7 +3,7 @@ package monads.free.lib
 import monads.Functor
 import monads.Monad
 import monads.Monad.{*, given}
-import monads.free.lib.Inject.inject
+import monads.free.lib.InjectIn.inject
 import scala.annotation.tailrec
 
 type ~>[F[_], G[_]] = Interpreter[F, G]
@@ -70,11 +70,13 @@ object Program:
     def andThen[B](continuation: A => Program[I, B]) =
       Then(program, continuation)
 
-    def injectProgram[I2[_]]: (I :>> I2) ?=> Program[I2, A] =
+    // format: off
+    def injectProgram[I2[_]]: (I InjectIn I2) ?=> Program[I2, A] =
       val interpreter = new (I ~> Program[I2, _]):
         def apply[A](instruction: I[A]): Program[I2, A] =
           Program.fromInstruction(instruction.inject)
       program.interpret(interpreter)
+    // format: on
 
     @tailrec def next: ProgramView[I, A] = program match
       case Return(value) => ProgramView.Return(value)
