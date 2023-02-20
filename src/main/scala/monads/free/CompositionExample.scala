@@ -10,6 +10,7 @@ import monads.free.lib.{
 }
 import monads.Monad.{*, given}
 import monads.IO
+import monads.free.lib.ProgramView
 
 enum LogLevel:
   case Error
@@ -54,7 +55,7 @@ object Console:
 def program[I[_]
     : With[ConsoleDSL]
     : With[LogDSL]
-    : With[FailDSL]] =
+    : With[FailDSL]]: Program[I, Unit] =
   val step = for
     line <- Console.getLine
     _    <- Console.printLine(line)
@@ -70,8 +71,10 @@ def program[I[_]
 // format: on
 
 @main def main =
-  Console.ioInterpreter
+  val interpreter = Console.ioInterpreter
     .or(Log.ioInterpreter)
     .or(Fail.ioInterpreter)
-    .interpret(program)
+
+  program[LogDSL :| ConsoleDSL :| FailDSL]
+    .interpret(interpreter)
     .unsafeRun()

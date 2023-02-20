@@ -14,12 +14,12 @@ extension [F[_], M[_]](interpreter: F ~> M)
   def interpret[A](program: Program[F, A]): Monad[M] ?=> M[A] =
     program.interpret(interpreter)
 
-  def or[G[_]](gToM: G ~> M): (F :| G) ~> M =
+  inline def or[G[_]](gToM: G ~> M): (F :| G) ~> M =
     new ((F :| G) ~> M):
       def apply[A](dsl: (F :| G)[A]): M[A] =
         dsl match
-          case LeftF(f)  => interpreter(f)
-          case RightF(g) => gToM(g)
+          case f: F[A] => interpreter(f)
+          case g: G[A] => gToM(g)
 
 // Program is a "Free Operational Monad"
 enum Program[I[_], A]:
