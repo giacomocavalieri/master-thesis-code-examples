@@ -10,6 +10,17 @@ type ~>[F[_], G[_]] = Interpreter[F, G]
 trait Interpreter[F[_], G[_]]:
   def apply[A](f: F[A]): G[A]
 
+object Interpreter:
+  def passThrough[I[_]: InjectibleIn[I2], I2[_]] =
+    new (I ~> Program[I2, _]):
+      def apply[A](instruction: I[A]) =
+        Program.injectInstruction(instruction)
+
+  def identity[I[_]] =
+    new (I ~> I):
+      def apply[A](instruction: I[A]) =
+        instruction
+
 extension [F[_], M[_]](interpreter: F ~> M)
   def interpret[A](program: Program[F, A]): Monad[M] ?=> M[A] =
     program.interpret(interpreter)
