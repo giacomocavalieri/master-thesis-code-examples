@@ -10,7 +10,9 @@ import monads.free.lib.{
 }
 import monads.Monad.{*, given}
 import monads.IO
-import monads.free.lib.ProgramView
+import monads.free.lib.{Interpreter, ProgramView}
+import monads.free.lib.InjectIn.inject
+import scala.annotation.tailrec
 
 enum LogLevel:
   case Error
@@ -51,30 +53,44 @@ object Console:
       case ConsoleDSL.GetLine()      => IO.getLine
       case ConsoleDSL.PrintLine(msg) => IO.putStrLn(msg)
 
-// format: off
-def program[I[_]
-    : With[ConsoleDSL]
-    : With[LogDSL]
-    : With[FailDSL]]: Program[I, Unit] =
-  val step = for
+def echo[I[_]: With[ConsoleDSL]: With[LogDSL]]
+  : Program[I, Unit] =
+  for
     line <- Console.getLine
-    _    <- Console.printLine(line)
-    _    <- Log.log(LogLevel.Info, f"echoed: $line")
-    _ <- when(line == "exit") {
-      for
-        _ <- Log.log(LogLevel.Info, "exited app")
-        _ <- Fail.fail
-      yield ()
-    }
+    _ <-
+      if (line == "quit")
+      then Log.log(LogLevel.Info, "quitting")
+      else
+        Console.printLine(line)
+          >> Log.log(LogLevel.Info, f"echoed a line")
+          >> echo
   yield ()
-  step.forever
-// format: on
 
-@main def main =
-  val interpreter = Console.ioInterpreter
-    .or(Log.ioInterpreter)
-    .or(Fail.ioInterpreter)
+@main def combiningInterpreters =
+  val logToConsole =
+    Log.consoleInterpreter.or(Interpreter.passThrough)
 
-  program[LogDSL :| ConsoleDSL :| FailDSL]
-    .interpret(interpreter)
-    .unsafeRun()
+  echo // : Program[ConsoleDSL :| LogDSL]
+    .interpret(logToConsole) // : Program[ConsoleDSL]
+    .interpret(Console.ioInterpreter) // : IO[Unit]
+    .unsafeRun() // : Unit
+
+@main def manualInterpreter =
+  interpret(echo)
+
+  @tailrec def interpret[A](
+    program: Program[LogDSL :| ConsoleDSL, A]
+  ): A =
+    program.next match
+      case ProgramView.Return(a) => a
+      case ProgramView.Then(instruction, continuation) =>
+        instruction match
+          case ConsoleDSL.PrintLine(msg) =>
+            println(msg)
+            interpret(continuation(()))
+          case ConsoleDSL.GetLine() =>
+            val line = scala.io.StdIn.readLine()
+            interpret(continuation(line))
+          case LogDSL.Log(logLevel, msg) =>
+            println(f"[$logLevel] $msg")
+            interpret(continuation(()))
