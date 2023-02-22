@@ -66,3 +66,5 @@ object Program:
           case Return(value) => f(value).next
           case Then(program, g) =>
             program.andThen(x => g(x).andThen(f)).next
+
+  def empty[I[_]]: Program[I, Unit] = Monad.pure(())

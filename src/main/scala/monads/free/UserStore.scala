@@ -5,16 +5,13 @@ import monads.mtl.{User, UserId}
 import monads.IO
 import monads.free.lib.*
 
+import UserStoreDSL.*
 enum UserStoreDSL[A]:
   case Get(userId: UserId) extends UserStoreDSL[Option[User]]
   case Save(user: User) extends UserStoreDSL[Unit]
   case Delete(userId: UserId) extends UserStoreDSL[Unit]
 
-type UserStore[A] = Program[UserStoreDSL, A]
-
 object UserStore:
-  import UserStoreDSL.*
-
   def get[I[_]: With[UserStoreDSL]](userId: UserId) =
     Program.inject(Get(userId))
 
@@ -25,15 +22,73 @@ object UserStore:
     Program.inject(Delete(userId))
 
   object Examples:
-    def program =
-      for user <- UserStore.get[UserStoreDSL](UserId(1))
-      yield 10
+    import scala.annotation.tailrec
+    import monads.Monad
+    import monads.mtl.Design.Examples.Production.*
 
-    val res = program.interpret(dbInterpreter)
+    object UpdateAgeExample:
+      import monads.mtl.Design.Examples.Delete
 
-    def dbInterpreter = new (UserStoreDSL ~> IO):
-      def apply[A](term: UserStoreDSL[A]): IO[A] =
-        term match
-          case Get(userId)    => IO(???)
-          case Save(user)     => IO(???)
-          case Delete(userId) => IO(???)
+      // format: off
+      def updateOrDelete[I[_]: With[UserStoreDSL]]
+        (user: User)(f: User => User | Delete): Program[I, Unit] =
+        f(user) match
+          case updatedUser: User => UserStore.save(updatedUser)
+          case _: Delete         => UserStore.delete(user.id)
+
+      def updateOrDelete[I[_]: With[UserStoreDSL]]
+        (userId: UserId)(f: User => User | Delete): Program[I, Unit] =
+        UserStore.get(userId).flatMap {
+          case Some(user) => updateOrDelete(user)(f)
+          case None       => Program.empty
+        }
+      // format: on
+
+      def updateAge[I[_]: With[UserStoreDSL]](userId: UserId) =
+        updateOrDelete(userId) { user =>
+          if user.age < 18
+          then Delete
+          else user.copy(age = user.age + 1)
+        }
+
+    import UpdateAgeExample.updateAge
+
+    extension [A](program: Program[UserStoreDSL, A])
+      @tailrec
+      def runInProduction(dbConnection: DatabaseConnection): A =
+        program.next match
+          case ProgramView.Return(value) => value
+          case ProgramView.Then(instruction, continuation) =>
+            instruction match
+              case Get(userId) =>
+                // Actually fetch the user via the DB connection
+                val user = ???
+                continuation(user).runInProduction(dbConnection)
+              case Save(user) =>
+                // Actually save the user via the DB connection
+                continuation(()).runInProduction(dbConnection)
+              case Delete(userId) =>
+                // Actually delete the user via the DB connection
+                continuation(()).runInProduction(dbConnection)
+
+    // format: off
+    extension [A](program: Program[UserStoreDSL, A])
+      @tailrec
+      def runMocked(users: Map[UserId, User]): Map[UserId, User] =
+        program.next match
+          case ProgramView.Return(value) => users
+          case ProgramView.Then(instruction, continuation) =>
+            instruction match
+              case Get(userId) =>
+                continuation(users.get(userId)).runMocked(users)
+              case Save(user) =>
+                val updatedUsers = users + ((user.id, user))
+                continuation(()).runMocked(updatedUsers)
+              case Delete(userId) =>
+                continuation(()).runMocked(users - userId)
+
+    def testUpdateAgeDeletesUnderageUsers: Unit =
+      val user = User(UserId(1), "Giacomo", 12)
+      val users = Map(user.id -> user)
+      val finalUsers = updateAge(user.id).runMocked(users)
+      assert(finalUsers.isEmpty)
