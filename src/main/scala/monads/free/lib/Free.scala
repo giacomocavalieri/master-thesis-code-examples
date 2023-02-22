@@ -3,34 +3,7 @@ package monads.free.lib
 import monads.Functor
 import monads.Monad
 import monads.Monad.{*, given}
-import monads.free.lib.InjectIn.inject
 import scala.annotation.tailrec
-
-type ~>[F[_], G[_]] = Interpreter[F, G]
-trait Interpreter[F[_], G[_]]:
-  def apply[A](f: F[A]): G[A]
-
-object Interpreter:
-  def passThrough[I[_]: InjectibleIn[I2], I2[_]] =
-    new (I ~> Program[I2, _]):
-      def apply[A](instruction: I[A]) =
-        Program.injectInstruction(instruction)
-
-  def identity[I[_]] =
-    new (I ~> I):
-      def apply[A](instruction: I[A]) =
-        instruction
-
-extension [F[_], M[_]](interpreter: F ~> M)
-  def interpret[A](program: Program[F, A]): Monad[M] ?=> M[A] =
-    program.interpret(interpreter)
-
-  inline def or[G[_]](gToM: G ~> M): (F :| G) ~> M =
-    new ((F :| G) ~> M):
-      def apply[A](dsl: (F :| G)[A]): M[A] =
-        dsl match
-          case f: F[A] => interpreter(f)
-          case g: G[A] => gToM(g)
 
 // Program is a "Free Operational Monad"
 enum Program[I[_], A]:
@@ -55,9 +28,10 @@ object Program:
   def fromInstruction[I[_], A](instruction: I[A]) =
     Instruction(instruction)
 
-  def injectInstruction[I[_]: InjectibleIn[I2], A, I2[_]](
-    instruction: I[A]
-  ) = Program.fromInstruction(instruction).injectProgram
+  // format: off
+  def inject[I[_], A, I2[_]](instruction: I[A])(using T: I ~> I2) =
+    Program.fromInstruction(T(instruction))
+  // format: on
 
   given programIsMonad[I[_]]: Monad[Program[I, _]] with
     def pure[A](a: A): Program[I, A] = Return(a)
@@ -80,14 +54,6 @@ object Program:
 
     def andThen[B](continuation: A => Program[I, B]) =
       Then(program, continuation)
-
-    // format: off
-    def injectProgram[I2[_]]: (I InjectIn I2) ?=> Program[I2, A] =
-      val interpreter = new (I ~> Program[I2, _]):
-        def apply[A](instruction: I[A]): Program[I2, A] =
-          Program.fromInstruction(instruction.inject)
-      program.interpret(interpreter)
-    // format: on
 
     @tailrec def next: ProgramView[I, A] = program match
       case Return(value) => ProgramView.Return(value)

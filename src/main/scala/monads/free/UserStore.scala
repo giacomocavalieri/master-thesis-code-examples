@@ -16,13 +16,13 @@ object UserStore:
   import UserStoreDSL.*
 
   def get[I[_]: With[UserStoreDSL]](userId: UserId) =
-    Program.injectInstruction(Get(userId))
+    Program.inject(Get(userId))
 
   def save[I[_]: With[UserStoreDSL]](user: User) =
-    Program.injectInstruction(Save(user))
+    Program.inject(Save(user))
 
   def delete[I[_]: With[UserStoreDSL]](userId: UserId) =
-    Program.injectInstruction(Delete(userId))
+    Program.inject(Delete(userId))
 
   object Examples:
     def program =

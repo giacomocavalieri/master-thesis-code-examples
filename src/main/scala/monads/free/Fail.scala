@@ -9,7 +9,7 @@ enum FailDSL[A]:
 
 object Fail:
   def fail[A, I[_]: With[FailDSL]] =
-    Program.injectInstruction(FailDSL.Fail())
+    Program.inject(FailDSL.Fail())
 
   val optionInterpreter = new (FailDSL ~> Option):
     def apply[A](f: FailDSL[A]): Option[A] = f match

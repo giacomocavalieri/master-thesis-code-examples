@@ -1,36 +1,20 @@
 package monads.free
-import monads.free.lib.{
-  Program,
-  With,
-  ~>,
-  or,
-  :|,
-  interpret,
-  InjectibleIn
-}
+
+import monads.free.lib.{Program, With, ~>, :|}
 import monads.Monad.{*, given}
 import monads.IO
 import monads.free.lib.{Interpreter, ProgramView}
-import monads.free.lib.InjectIn.inject
 import scala.annotation.tailrec
 
 enum LogLevel:
-  case Error
-  case Warning
-  case Info
+  case Error, Warning, Info
 
 enum LogDSL[A]:
   case Log(logLevel: LogLevel, msg: String) extends LogDSL[Unit]
 
 object Log:
   def log[I[_]: With[LogDSL]](logLevel: LogLevel, msg: String) =
-    Program.injectInstruction(LogDSL.Log(logLevel, msg))
-
-  def consoleInterpreter[I[_]: With[ConsoleDSL]] =
-    new (LogDSL ~> Program[I, _]):
-      def apply[A](dsl: LogDSL[A]) = dsl match
-        case LogDSL.Log(logLevel, msg) =>
-          Console.printLine(f"[$logLevel] $msg")
+    Program.inject(LogDSL.Log(logLevel, msg))
 
   val ioInterpreter = new (LogDSL ~> IO):
     def apply[A](dsl: LogDSL[A]) = dsl match
@@ -43,10 +27,10 @@ enum ConsoleDSL[A]:
 
 object Console:
   def getLine[I[_]: With[ConsoleDSL]] =
-    Program.injectInstruction(ConsoleDSL.GetLine())
+    Program.inject(ConsoleDSL.GetLine())
 
   def printLine[I[_]: With[ConsoleDSL]](msg: String) =
-    Program.injectInstruction(ConsoleDSL.PrintLine(msg))
+    Program.inject(ConsoleDSL.PrintLine(msg))
 
   val ioInterpreter = new (ConsoleDSL ~> IO):
     def apply[A](dsl: ConsoleDSL[A]) = dsl match
@@ -67,13 +51,9 @@ def echo[I[_]: With[ConsoleDSL]: With[LogDSL]]
   yield ()
 
 @main def combiningInterpreters =
-  val logToConsole =
-    Log.consoleInterpreter.or(Interpreter.passThrough)
-
-  echo // : Program[ConsoleDSL :| LogDSL]
-    .interpret(logToConsole) // : Program[ConsoleDSL]
-    .interpret(Console.ioInterpreter) // : IO[Unit]
-    .unsafeRun() // : Unit
+  val interpreter =
+    Log.ioInterpreter.combinedWith(Console.ioInterpreter)
+  echo.interpret(interpreter).unsafeRun()
 
 @main def manualInterpreter =
   interpret(echo)
